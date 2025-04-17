@@ -7,6 +7,8 @@ import com.rakx07.main.service.RefreshTokenService;
 import com.rakx07.main.service.UserService;
 import com.rakx07.main.util.JwtUtil;
 import io.micrometer.common.util.StringUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -40,29 +42,29 @@ public class RestApiController {
     }
 
     @PostMapping("/user/register")
-    public String userRegister(@RequestBody User user) {
+    public ResponseEntity<?> userRegister(@RequestBody User user) {
         User existingUser = userService.findUserByUsername(user.getUserName());
 
         if(existingUser != null) {
-            return "User already exists!";
+            return ResponseEntity.badRequest().body("User already exists!");
         }
         userService.saveUser(user);
-        return "User registration successful!";
+        return ResponseEntity.ok("User registration successful!");
     }
 
     @PostMapping("/admin/register")
-    public String adminRegister(@RequestBody User user) {
+    public ResponseEntity<?> adminRegister(@RequestBody User user) {
         User existingUser = userService.findUserByUsername(user.getUserName());
 
         if(existingUser != null) {
-            return "Admin already exists!";
+            return ResponseEntity.badRequest().body("Admin already exists!");
         }
         userService.saveAdmin(user);
-        return "Admin registration successful!";
+        return ResponseEntity.ok("Admin registration successful!");
     }
 
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody User user){
+    public ResponseEntity<?> login(@RequestBody User user){
         try {
 
             // Check if username + password is correct
@@ -77,14 +79,16 @@ public class RestApiController {
             Map<String, Object> tokenMap = new HashMap<>();
             tokenMap.put("jwtToken", jwtUtil.generateToken(userDetails));
             tokenMap.put("refreshToken", refreshTokenService.createRefreshToken(existingUser).getToken());
-            return tokenMap;
+
+            return new ResponseEntity<>(tokenMap, HttpStatus.OK);
         } catch (Exception ex) {
-            return Map.of("Error", "Invalid credentials");
+            Map<String, String> errorMap = Map.of("Error", "Invalid credentials");
+            return new ResponseEntity<>(errorMap, HttpStatus.UNAUTHORIZED);
         }
     }
 
     @PostMapping("/refresh")
-    public String refreshToken(@RequestBody Map<String, Object> requestBody) {
+    public ResponseEntity<?> refreshToken(@RequestBody Map<String, Object> requestBody) {
         String refreshToken = requestBody.get("refreshToken").toString();
 
         if(StringUtils.isNotBlank(refreshToken))
@@ -106,9 +110,16 @@ public class RestApiController {
                 UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                         user.getUserName(), "", authorities);
 
-                return jwtUtil.generateToken(userDetails);
+                String jwtToken = jwtUtil.generateToken(userDetails);
+
+                Map<String, String> tokenResponse = Map.of("jwtToken", jwtToken);
+                return new ResponseEntity<>(tokenResponse, HttpStatus.OK);
+                /**
+                 * This can be used as an alternative way.
+                 * return ResponseEntity.ok(Map.of("jwtToken", jwtToken));
+                 */
             }
         }
-        return "Invalid refresh token!";
+        return ResponseEntity.badRequest().body("Invalid refresh token!");
     }
 }

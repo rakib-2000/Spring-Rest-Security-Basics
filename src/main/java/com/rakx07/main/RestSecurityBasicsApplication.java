@@ -12,7 +12,9 @@ public class RestSecurityBasicsApplication {
 
     @Bean
     PasswordEncoder passwordEncoder(){
+        // Use it while no password encryption is running.
         return NoOpPasswordEncoder.getInstance();
+        // Use it while password is encrypted.
         //return new BCryptPasswordEncoder();
     }
 
